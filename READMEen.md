@@ -4,11 +4,11 @@
 ## ✨ Introduction
 **Lajiaochaorou - SD Image Labeling Assistant** is a tool designed for batch processing images and adding annotations, particularly useful for preparing training data for Stable Diffusion models (such as LoRA). By integrating multimodal image understanding models with customizable prompts, this tool helps users efficiently complete image labeling tasks.
 
-## 🎥 Tutorial  
-Bilibili Video Tutorial: [Click to Watch](https://www.bilibili.com/video/BV1H5fYYUEoy/)  
-
 ### 🖼️ Core Goal
 Make image labeling simpler, more efficient, and smarter!
+
+## 🎥 Tutorial  
+Bilibili Video Tutorial: [Click to Watch](https://www.bilibili.com/video/BV1H5fYYUEoy/)  
 
 ---
 
