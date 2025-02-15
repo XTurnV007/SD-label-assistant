@@ -1,0 +1,1 @@
+D:/install/python/python.exe d:/install/python/lib/site-packages/pyinstaller/__main__.py --onefile --noconsole image_processing_app.py
