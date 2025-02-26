@@ -19,7 +19,7 @@ ctk.set_appearance_mode("light")  # 设置主题
 ctk.set_default_color_theme("blue")  # 设置颜色主题
 
 root = ctk.CTk()
-root.title("辣椒炒肉-图片打标器v2.2.1")
+root.title("辣椒炒肉-图片打标器v2.2.2")
 
 # 修改：动态调整窗口大小，限制最大和最小尺寸
 screen_width = root.winfo_screenwidth()
@@ -206,7 +206,7 @@ def load_model_list():
         with open(MODEL_LIST_FILE, "r") as file:
             return json.load(file)
     # 如果文件不存在，返回默认模型列表
-    return ['gpt-4o-2024-08-06', 'gpt-4o-2024-11-20', 'claude-3-5-sonnet-20241022', 'gemini-2.0-flash-exp']
+    return ['gpt-4o', 'claude-3-7-sonnet', 'gemini-2.0-flash']
 
 # 保存模型列表
 def save_model_list(models):
@@ -581,13 +581,9 @@ def start_processing():
         update_status("Info: 图片目录中没有图片!")
         return
 
-    total_images = len(image_filenames)  # 新目录的总图片数量
-
-    # 重新统计新目录中已存在的 .txt 文件数量
-    processed_count = sum(
-        1 for image_filename in image_filenames
-        if os.path.exists(os.path.join(output_directory, os.path.splitext(image_filename)[0] + '.txt'))
-    )
+    total_images = len(image_filenames)  # 总图片数量
+    processed_count = 0  # 已处理的图片数量
+    lock = Lock()  # 创建线程锁
 
     # 更新初始进度
     progress = processed_count / total_images * 100 if total_images > 0 else 0
@@ -620,20 +616,6 @@ def start_processing():
         update_status("Error: 没有可用的 API Keys!")
         return
 
-    total_images = len(image_filenames)  # 总图片数量
-    processed_count = 0  # 已处理的图片数量
-    lock = Lock()  # 创建线程锁
-
-    # 修改：计算已存在的 txt 文件数量
-    processed_count = sum(
-        1 for image_filename in image_filenames
-        if os.path.exists(os.path.join(output_directory, os.path.splitext(image_filename)[0] + '.txt'))
-    )
-
-    # 更新初始进度
-    progress = processed_count / total_images * 100 if total_images > 0 else 0
-    progress_var.set(f"图片处理进度: {processed_count}/{total_images} ({progress:.2f}%)")  # 实时更新进度显示
-
     # 并行处理图片
     def process():
         update_status("处理开始...")
@@ -644,6 +626,12 @@ def start_processing():
             task_queue.get()  # 清空队列
         for image_filename in image_filenames:
             task_queue.put(image_filename)
+
+        # 初始化成功和失败的计数器，以及开始时间
+        nonlocal processed_count
+        success_count = 0
+        failure_count = 0
+        start_time = time.time()
 
         # 为每个 API Key 创建一个线程池
         api_key_pools = {}
@@ -673,16 +661,16 @@ def start_processing():
                 time.sleep(0.5)  # 每0.5秒检查一次暂停状态
             try:
                 success = future.result()
-                if success:
-                    with lock:  # 使用线程锁更新已处理数量
-                        nonlocal processed_count, total_images
-                        processed_count = sum(
-                            1 for image_filename in image_filenames
-                            if os.path.exists(os.path.join(output_directory, os.path.splitext(image_filename)[0] + '.txt'))
-                        )
-                        total_images = len(image_filenames)  # 确保总图片数量也基于当前目录
-                        progress = processed_count / total_images * 100 if total_images > 0 else 0
-                        progress_var.set(f"图片处理进度: {processed_count}/{total_images} ({progress:.2f}%)")  # 实时更新进度显示
+                with lock:
+                    processed_count += 1  # 更新已处理数量
+                    if success:
+                        success_count += 1  # 成功计数 +1
+                    else:
+                        failure_count += 1  # 失败计数 +1
+
+                    # 更新进度显示
+                    progress = processed_count / total_images * 100 if total_images > 0 else 0
+                    progress_var.set(f"图片处理进度: {processed_count}/{total_images} ({progress:.2f}%)")
             except Exception as e:
                 update_status(f"发生异常: {e}")
 
@@ -690,7 +678,8 @@ def start_processing():
         for pool in api_key_pools.values():
             pool.shutdown()
 
-        update_status("处理完成! 所有图片都已处理.")
+        total_time = time.time() - start_time  # 计算总耗时
+        update_status(f"处理完成! 成功处理 {success_count} 张图片，失败 {failure_count} 张图片，耗时 {total_time:.2f} 秒。")
 
     threading.Thread(target=process).start()
 
